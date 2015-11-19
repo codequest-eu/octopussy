@@ -1,15 +1,16 @@
 package octopussy
 
 import (
-	"encoding/json"
-	"io"
+	"log"
+	"time"
 
 	"github.com/streadway/amqp"
+	"golang.org/x/net/websocket"
 )
 
 type handler struct {
 	channel   *amqp.Channel
-	websocket io.ReadWriter
+	websocket *websocket.Conn
 	exchange  string
 	queue     *amqp.Queue
 	topics    []string
@@ -26,6 +27,7 @@ func (h *handler) setUp() error {
 	if err := h.getTopics(); err != nil {
 		return err
 	}
+	log.Println("Got topics! ", h.topics)
 	if err := h.declareExchange(); err != nil {
 		return err
 	}
@@ -36,7 +38,7 @@ func (h *handler) setUp() error {
 }
 
 func (h *handler) getTopics() error {
-	return json.NewDecoder(h.websocket).Decode(&h.topics)
+	return websocket.JSON.Receive(h.websocket, &h.topics)
 }
 
 func (h *handler) declareExchange() error {
@@ -98,10 +100,19 @@ func (h *handler) consume() error {
 	if err != nil {
 		return err
 	}
-	for message := range messages {
-		if _, err := h.websocket.Write(message.Body); err != nil {
-			return err
-		}
-	}
-	return nil
+	defer h.channel.Close()
+	for {
+		select {
+	    case message := <-messages:
+				if err := websocket.JSON.Send(h.websocket, message.Body); err != nil {
+					return err
+				}
+	    case <-time.After(time.Second * 5):
+				if err := websocket.JSON.Send(h.websocket, "bacon"); err != nil {
+					log.Printf("%T", err)
+					return err
+				}
+	  }
+  }
+  return nil
 }
