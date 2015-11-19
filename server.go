@@ -45,8 +45,6 @@ func (s *Server) handle(ws *websocket.Conn) {
 		s.catchError(err)
 		return
 	}
-	defer s.catchError(channel.Close())
-	defer s.catchError(ws.Close())
 	requestHandler := &handler{
 		channel:   channel,
 		websocket: ws,
@@ -56,7 +54,7 @@ func (s *Server) handle(ws *websocket.Conn) {
 }
 
 func (s *Server) catchError(err error) {
-	if err != nil {
+	if err == nil {
 		return
 	}
 	if s.OnError == nil {
