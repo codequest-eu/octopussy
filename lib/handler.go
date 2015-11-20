@@ -1,18 +1,36 @@
 package octopussy
 
 import (
+	"time"
 	"encoding/json"
-	"io"
 
 	"github.com/streadway/amqp"
+	"github.com/gorilla/websocket"
+)
+
+const (
+	// Time allowed to read the next pong message from the peer.
+	pongWait = 60 * time.Second
+	// Send pings to peer with this period. Must be less than pongWait.
+	pingPeriod = (pongWait * 9) / 10
 )
 
 type handler struct {
 	channel   *amqp.Channel
-	websocket io.ReadWriter
+	messages  <-chan amqp.Delivery
+	websocket *websocket.Conn
+	ticker    *time.Ticker
 	exchange  string
 	queue     *amqp.Queue
 	topics    []string
+}
+
+func newHandler(ch *amqp.Channel, ws *websocket.Conn, ex string) *handler {
+	return &handler{
+		channel:   ch,
+		websocket: ws,
+		exchange:  ex,
+	}
 }
 
 func (h *handler) handle() error {
@@ -32,11 +50,22 @@ func (h *handler) setUp() error {
 	if err := h.declareQueue(); err != nil {
 		return err
 	}
-	return h.subscribeToTopics()
+	if err := h.subscribeToTopics(); err != nil {
+		return err
+	}
+	h.setUpTicker();
+	return h.createChannel()
 }
 
 func (h *handler) getTopics() error {
-	return json.NewDecoder(h.websocket).Decode(&h.topics)
+	_, r, err := h.websocket.NextReader()
+	if err != nil {
+		return err
+	}
+	if err := json.NewDecoder(r).Decode(&h.topics); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (h *handler) declareExchange() error {
@@ -85,8 +114,8 @@ func (h *handler) subscribeToTopic(topic string) error {
 	)
 }
 
-func (h *handler) consume() error {
-	messages, err := h.channel.Consume(
+func (h *handler) createChannel() error {
+	msgChan, err := h.channel.Consume(
 		h.queue.Name, // queue
 		"",           // consumer
 		true,         // auto-ack
@@ -95,13 +124,42 @@ func (h *handler) consume() error {
 		false,        // no-wait
 		nil,          // arguments
 	)
-	if err != nil {
-		return err
+	if err == nil {
+		h.messages = msgChan
 	}
-	for message := range messages {
-		if _, err := h.websocket.Write(message.Body); err != nil {
-			return err
+	return err
+}
+
+func (h *handler) setUpTicker() {
+	h.ticker = time.NewTicker(pingPeriod)
+	h.websocket.SetReadDeadline(time.Now().Add(pongWait))
+	h.websocket.SetPongHandler(h.receivePong)
+}
+
+func (h *handler) receivePong(_ string) error {
+	h.websocket.SetReadDeadline(time.Now().Add(pongWait));
+	return nil
+}
+
+func (h *handler) consume() error {
+	defer h.Close()
+	for {
+		select {
+		case message := <-h.messages:
+			if err := h.websocket.WriteMessage(websocket.TextMessage, message.Body); err != nil {
+				return err
+			}
+		case <-h.ticker.C:
+			if err := h.websocket.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
+}
+
+func (h *handler) Close() {
+	h.channel.Close()
+	h.websocket.Close()
+	h.ticker.Stop()
 }
