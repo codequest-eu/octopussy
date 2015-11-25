@@ -1,4 +1,4 @@
 #!/bin/bash
-echo $WS_CERT > cert.pem
-echo $WS_KEY > cert.key
+echo -e $WS_CERT > cert.pem
+echo -e $WS_KEY > cert.key
 $@
