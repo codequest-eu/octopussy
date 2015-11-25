@@ -1,0 +1,6 @@
+ws:
+  build: .
+  env_file: .env
+  command: ./octopussy -d -p 9090
+  ports:
+    - "9090:9090"
