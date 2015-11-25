@@ -3,9 +3,11 @@ package main
 import (
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/codegangsta/cli"
 	octopussy "github.com/codequest-eu/octopussy/lib"
@@ -33,15 +35,18 @@ func checkOriginRegexp(pattern string) func(*http.Request) bool {
 		log.Println("CORS is currently disabled")
 	}
 	return func(r *http.Request) bool {
-		origin := (r.Header["Origin"])
+		origin := r.Header["Origin"]
 		if len(origin) == 0 {
-			return true
+			return false
 		}
-		match, err := regexp.Match(pattern, []byte(origin[0]))
+		hostUrl, err := url.Parse(origin[0])
 		if err != nil {
 			return false
 		}
-		return match
+		pattern := strings.TrimSpace(pattern)
+		hostname := strings.TrimSpace(strings.SplitN(hostUrl.Host, ":", 2)[0])
+		match, err := regexp.MatchString(pattern, hostname)
+		return (err == nil) && match
 	}
 }
 
