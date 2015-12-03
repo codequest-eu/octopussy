@@ -1,10 +1,11 @@
 package octopussy
 
 import (
+	"log"
 	"net/http"
 
-	"github.com/streadway/amqp"
 	"github.com/gorilla/websocket"
+	"github.com/streadway/amqp"
 )
 
 // Server is an AMQP-to-websockets bridge.
@@ -33,6 +34,11 @@ func (s *Server) Dial(url string) error {
 	conn, err := amqp.Dial(url)
 	if err == nil {
 		s.Connection = conn
+		var errChan chan *amqp.Error
+		conn.NotifyClose(errChan)
+		go func() {
+			log.Fatal(<-errChan)
+		}()
 	}
 	return err
 }
@@ -66,10 +72,7 @@ func (s *Server) Close() error {
 }
 
 func (s *Server) catchError(err error) {
-	if err != nil {
-		return
-	}
-	if s.OnError == nil {
+	if err != nil || s.OnError == nil {
 		return
 	}
 	s.OnError(err)
