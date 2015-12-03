@@ -1,12 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/codegangsta/cli"
@@ -14,7 +14,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func startServer(amqpUrl string, amqpExchange string) (*octopussy.Server, error) {
+func startServer(amqpURL string, amqpExchange string) (*octopussy.Server, error) {
 	server := &octopussy.Server{
 		Exchange: amqpExchange,
 		OnError: func(e error) {
@@ -24,7 +24,7 @@ func startServer(amqpUrl string, amqpExchange string) (*octopussy.Server, error)
 			log.Println("Connecting " + r.RemoteAddr)
 		},
 	}
-	if err := server.Dial(amqpUrl); err != nil {
+	if err := server.Dial(amqpURL); err != nil {
 		return nil, err
 	}
 	return server, nil
@@ -39,12 +39,12 @@ func checkOriginRegexp(pattern string) func(*http.Request) bool {
 		if len(origin) == 0 {
 			return false
 		}
-		hostUrl, err := url.Parse(origin[0])
+		hostURL, err := url.Parse(origin[0])
 		if err != nil {
 			return false
 		}
 		pattern := strings.TrimSpace(pattern)
-		hostname := strings.TrimSpace(strings.SplitN(hostUrl.Host, ":", 2)[0])
+		hostname := strings.TrimSpace(strings.SplitN(hostURL.Host, ":", 2)[0])
 		match, err := regexp.MatchString(pattern, hostname)
 		return (err == nil) && match
 	}
@@ -55,25 +55,26 @@ func main() {
 	app.Name = "AMQP-WebSocket push service"
 	app.Usage = "provides real-time notifications from amqp topics"
 	app.Version = "0.0.1"
-	app.Flags = []cli.Flag{developmentFlag, hostFlag, portFlag, amqpUrlFlag, amqpExchangeFlag, originRegexpFlag}
+	app.Flags = []cli.Flag{developmentFlag, hostFlag, portFlag, amqpURLFlag, amqpExchangeFlag, originRegexpFlag}
 	app.Action = func(c *cli.Context) {
-		server, err := startServer(amqpUrl, amqpExchange)
+		server, err := startServer(amqpURL, amqpExchange)
 		if err != nil {
 			log.Println("AMQP Unreachable")
 			return
 		}
+		defer server.Close()
 		server.Upgrader = &websocket.Upgrader{
 			CheckOrigin: checkOriginRegexp(originRegexp),
 		}
 		http.HandleFunc("/", server.Handler())
-		parsedAddr := host + ":" + strconv.Itoa(port)
+		parsedAddr := fmt.Sprintf("%s:%d", host, port)
 		log.Println("Listening for WebSocket connections on " + parsedAddr)
 		if development {
 			log.Fatal(http.ListenAndServe(parsedAddr, nil))
-		} else {
-			// Requires cert.pem and cert.key to be present. See cert_setup.sh
-			log.Fatal(http.ListenAndServeTLS(parsedAddr, "cert.pem", "cert.key", nil))
+			return
 		}
+		// Requires cert.pem and cert.key to be present. See cert_setup.sh
+		log.Fatal(http.ListenAndServeTLS(parsedAddr, "cert.pem", "cert.key", nil))
 	}
 	app.Run(os.Args)
 }

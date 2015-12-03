@@ -3,7 +3,7 @@ package main
 import "github.com/codegangsta/cli"
 
 var (
-	amqpUrl, amqpExchange, host, originRegexp string
+	amqpURL, amqpExchange, host, originRegexp string
 	port                                      int
 	development                               bool
 	hostFlag                                  = cli.StringFlag{
@@ -27,11 +27,11 @@ var (
 		EnvVar:      "WS_ALLOW_ORIGIN_REGEXP",
 		Destination: &originRegexp,
 	}
-	amqpUrlFlag = cli.StringFlag{
+	amqpURLFlag = cli.StringFlag{
 		Name:        "amqp-url, u",
 		Usage:       "full amqp URL",
 		EnvVar:      "AMQP_URL",
-		Destination: &amqpUrl,
+		Destination: &amqpURL,
 	}
 	amqpExchangeFlag = cli.StringFlag{
 		Name:        "amqp-exchange, x",
