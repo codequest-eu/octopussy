@@ -1,11 +1,16 @@
 package main
 
-import "github.com/codegangsta/cli"
+import (
+	"time"
+
+	"github.com/codegangsta/cli"
+)
 
 var (
 	amqpURL, amqpExchange, host, originRegexp string
 	port                                      int
 	development                               bool
+	killAfter                                 time.Duration
 	hostFlag                                  = cli.StringFlag{
 		Name:        "bind, b",
 		Value:       "",
@@ -44,5 +49,12 @@ var (
 		Name:        "development, d",
 		Usage:       "run in development mode, without CORS and TLS",
 		Destination: &development,
+	}
+	killAfterFlag = cli.DurationFlag{
+		Name:        "kill-after, k",
+		Value:       15 * time.Minute,
+		Usage:       "time duration to wait for new connections",
+		EnvVar:      "KILL_AFTER",
+		Destination: &killAfter,
 	}
 )
