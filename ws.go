@@ -23,8 +23,9 @@ func startServer(amqpURL string, amqpExchange string) (*octopussy.Server, error)
 		OnConn: func(r http.Request) {
 			log.Println("Connecting " + r.RemoteAddr)
 		},
+		ConnectionFactory: octopussy.DialURL(amqpURL),
 	}
-	if err := server.Dial(amqpURL); err != nil {
+	if err := server.SetupConnection(); err != nil {
 		return nil, err
 	}
 	return server, nil

@@ -8,6 +8,9 @@ import (
 	"github.com/streadway/amqp"
 )
 
+// ConnectionFactory is a function capable of creating an AMQP connection.
+type ConnectionFactory func() (*amqp.Connection, error)
+
 // Server is an AMQP-to-websockets bridge.
 type Server struct {
 	// Name of the exchange to use.
@@ -19,28 +22,23 @@ type Server struct {
 	// Optional function called with every incoming connection.
 	OnConn func(http.Request)
 
-	// Connection represents the underlying AMQP connection. It can be set
-	// directly or constructed from a URL using the `Dial` call.
-	Connection *amqp.Connection
+	// ConnectionFactory is a function capable of creating the underlying
+	// AMQP connection.
+	ConnectionFactory ConnectionFactory
 
 	// websocket.Upgrader used for setting up the WS connection
 	Upgrader *websocket.Upgrader
+
+	// amqp.Connection
+	conn *amqp.Connection
 }
 
 var DefaultUpgrader = &websocket.Upgrader{}
 
-// Dial sets up the AMQP connection if you don't want to provide it directly.
-func (s *Server) Dial(url string) error {
-	conn, err := amqp.Dial(url)
-	if err == nil {
-		s.Connection = conn
-		var errChan chan *amqp.Error
-		conn.NotifyClose(errChan)
-		go func() {
-			log.Fatal(<-errChan)
-		}()
+func DialURL(url string) ConnectionFactory {
+	return func() (*amqp.Connection, error) {
+		return amqp.Dial(url)
 	}
-	return err
 }
 
 // Handler returns an HTTP handler that can be directly connected to the router.
@@ -54,10 +52,9 @@ func (s *Server) Handler() func(http.ResponseWriter, *http.Request) {
 			s.catchError(err)
 			return
 		}
-		channel, err := s.Connection.Channel()
+		channel, err := s.getChannel()
 		if err != nil {
-			s.catchError(err)
-			return
+			log.Fatalf("Cannot establish AMQP channel: %v", err)
 		}
 		if s.OnConn != nil {
 			s.OnConn(*r)
@@ -66,9 +63,32 @@ func (s *Server) Handler() func(http.ResponseWriter, *http.Request) {
 	}
 }
 
+func (s *Server) getChannel() (*amqp.Channel, error) {
+	return s.getChannelWithRetry(false)
+}
+
+func (s *Server) getChannelWithRetry(isRetry bool) (*amqp.Channel, error) {
+	channel, err := s.conn.Channel()
+	if err == nil || isRetry {
+		return channel, err
+	}
+	if err := s.SetupConnection(); err != nil {
+		return nil, err
+	}
+	return s.getChannelWithRetry(true)
+}
+
+func (s *Server) SetupConnection() error {
+	conn, err := s.ConnectionFactory()
+	if err == nil {
+		s.conn = conn
+	}
+	return err
+}
+
 // Close closes the underlying AMQP connection.
 func (s *Server) Close() error {
-	return s.Connection.Close()
+	return s.conn.Close()
 }
 
 func (s *Server) catchError(err error) {
