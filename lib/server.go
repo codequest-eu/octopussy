@@ -72,7 +72,7 @@ func (s *Server) Close() error {
 }
 
 func (s *Server) catchError(err error) {
-	if err != nil || s.OnError == nil {
+	if err == nil || s.OnError == nil {
 		return
 	}
 	s.OnError(err)
