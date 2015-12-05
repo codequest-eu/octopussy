@@ -1,11 +1,12 @@
 package octopussy
 
 import (
-	"time"
 	"encoding/json"
+	"syscall"
+	"time"
 
-	"github.com/streadway/amqp"
 	"github.com/gorilla/websocket"
+	"github.com/streadway/amqp"
 )
 
 const (
@@ -53,7 +54,7 @@ func (h *handler) setUp() error {
 	if err := h.subscribeToTopics(); err != nil {
 		return err
 	}
-	h.setUpTicker();
+	h.setUpTicker()
 	return h.createChannel()
 }
 
@@ -137,7 +138,7 @@ func (h *handler) setUpTicker() {
 }
 
 func (h *handler) receivePong(_ string) error {
-	h.websocket.SetReadDeadline(time.Now().Add(pongWait));
+	h.websocket.SetReadDeadline(time.Now().Add(pongWait))
 	return nil
 }
 
@@ -146,16 +147,35 @@ func (h *handler) consume() error {
 	for {
 		select {
 		case message := <-h.messages:
-			if err := h.websocket.WriteMessage(websocket.TextMessage, message.Body); err != nil {
-				return err
+			if err := h.sendMessage(message.Body); err != nil {
+				return handlePipeError(err)
 			}
 		case <-h.ticker.C:
-			if err := h.websocket.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
-				return err
+			if err := h.sendPing(); err != nil {
+				return handlePipeError(err)
 			}
 		}
 	}
 	return nil
+}
+
+func (h *handler) sendMessage(body []byte) error {
+	return h.websocket.WriteMessage(websocket.TextMessage, body)
+}
+
+func (h *handler) sendPing() error {
+	return h.websocket.WriteControl(
+		websocket.PingMessage,
+		[]byte{},
+		time.Now().Add(5*time.Second),
+	)
+}
+
+func handlePipeError(err error) error {
+	if err == syscall.EPIPE {
+		return nil
+	}
+	return err
 }
 
 func (h *handler) Close() {
