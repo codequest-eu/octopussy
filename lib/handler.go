@@ -26,6 +26,20 @@ type handler struct {
 	topics    []string
 }
 
+type step func() error
+
+type stepper struct {
+	err error
+}
+
+func (s *stepper) perform(steps ...step) {
+	for _, st := range steps {
+		if s.err == nil {
+			s.err = st()
+		}
+	}
+}
+
 func newHandler(ch *amqp.Channel, ws *websocket.Conn, ex string) *handler {
 	return &handler{
 		channel:   ch,
@@ -42,17 +56,10 @@ func (h *handler) handle() error {
 }
 
 func (h *handler) setUp() error {
-	if err := h.getTopics(); err != nil {
-		return err
-	}
-	if err := h.declareExchange(); err != nil {
-		return err
-	}
-	if err := h.declareQueue(); err != nil {
-		return err
-	}
-	if err := h.subscribeToTopics(); err != nil {
-		return err
+	s := &stepper{}
+	s.perform(h.getTopics, h.declareExchange, h.declareQueue, h.subscribeToTopics)
+	if s.err != nil {
+		return s.err
 	}
 	h.setUpTicker()
 	return h.createChannel()
@@ -134,29 +141,30 @@ func (h *handler) createChannel() error {
 func (h *handler) setUpTicker() {
 	h.ticker = time.NewTicker(pingPeriod)
 	h.websocket.SetReadDeadline(time.Now().Add(pongWait))
-	h.websocket.SetPongHandler(h.receivePong)
-}
-
-func (h *handler) receivePong(_ string) error {
-	h.websocket.SetReadDeadline(time.Now().Add(pongWait))
-	return nil
+	h.websocket.SetPongHandler(func(_ string) error {
+		h.websocket.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
 }
 
 func (h *handler) consume() error {
 	defer h.Close()
 	for {
-		select {
-		case message := <-h.messages:
-			if err := h.sendMessage(message.Body); err != nil {
-				return handlePipeError(err)
-			}
-		case <-h.ticker.C:
-			if err := h.sendPing(); err != nil {
-				return handlePipeError(err)
-			}
+		if err := h.consumeOne(); err != nil {
+			return handlePipeError(err)
 		}
 	}
 	return nil
+}
+
+func (h *handler) consumeOne() error {
+	select {
+	case message := <-h.messages:
+		return h.sendMessage(message.Body)
+	case <-h.ticker.C:
+		break
+	}
+	return h.sendPing()
 }
 
 func (h *handler) sendMessage(body []byte) error {
