@@ -138,13 +138,17 @@ func (h *handler) createChannel() error {
 	return err
 }
 
+func pongHandler(ws *websocket.Conn) func(_ string) error {
+	return func(_ string) error {
+		ws.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	}
+}
+
 func (h *handler) setUpTicker() {
 	h.ticker = time.NewTicker(pingPeriod)
 	h.websocket.SetReadDeadline(time.Now().Add(pongWait))
-	h.websocket.SetPongHandler(func(_ string) error {
-		h.websocket.SetReadDeadline(time.Now().Add(pongWait))
-		return nil
-	})
+	h.websocket.SetPongHandler(pongHandler(h.websocket))
 }
 
 func (h *handler) consume() error {
@@ -159,24 +163,13 @@ func (h *handler) consume() error {
 
 func (h *handler) consumeOne() error {
 	select {
-	case message := <-h.messages:
-		return h.sendMessage(message.Body)
+	case msg := <-h.messages:
+		return h.websocket.WriteMessage(websocket.TextMessage, msg.Body)
 	case <-h.ticker.C:
 		break
 	}
-	return h.sendPing()
-}
-
-func (h *handler) sendMessage(body []byte) error {
-	return h.websocket.WriteMessage(websocket.TextMessage, body)
-}
-
-func (h *handler) sendPing() error {
-	return h.websocket.WriteControl(
-		websocket.PingMessage,
-		[]byte{},
-		time.Now().Add(5*time.Second),
-	)
+	ttl := time.Now().Add(5 * time.Second)
+	return h.websocket.WriteControl(websocket.PingMessage, []byte{}, ttl)
 }
 
 func handlePipeError(err error) error {
