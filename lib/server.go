@@ -46,21 +46,27 @@ func (s *Server) Handler() func(http.ResponseWriter, *http.Request) {
 	if s.Upgrader == nil {
 		s.Upgrader = DefaultUpgrader
 	}
-	return func(w http.ResponseWriter, r *http.Request) {
-		ws, err := s.Upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			s.catchError(err)
-			return
-		}
-		channel, err := s.getChannel()
-		if err != nil {
-			log.Fatalf("Cannot establish AMQP channel: %v", err)
-		}
-		if s.OnConn != nil {
-			s.OnConn(*r)
-		}
-		s.catchError(newHandler(channel, ws, s.Exchange).handle())
+	return s.handlerFunc
+}
+
+func (s *Server) runConnCallback(r *http.Request) {
+	if s.OnConn != nil {
+		s.OnConn(*r)
 	}
+}
+
+func (s *Server) handlerFunc(w http.ResponseWriter, r *http.Request) {
+	ws, err := s.Upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		s.catchError(err)
+		return
+	}
+	channel, err := s.getChannel()
+	if err != nil {
+		log.Fatalf("Cannot establish AMQP channel: %v", err)
+	}
+	s.runConnCallback(r)
+	s.catchError(newHandler(channel, ws, s.Exchange).handle())
 }
 
 func (s *Server) getChannel() (*amqp.Channel, error) {
