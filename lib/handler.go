@@ -92,7 +92,7 @@ func (h *handler) declareQueue() error {
 	queue, err := h.channel.QueueDeclare(
 		"",    // name
 		false, // durable
-		false, // delete when usused
+		true,  // delete when usused
 		true,  // exclusive
 		false, // no-wait
 		nil,   // arguments
