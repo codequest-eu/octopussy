@@ -27,7 +27,7 @@ func createServer() (*octopussy.Server, error) {
 		Exchange:          amqpExchange,
 		OnError:           logError,
 		OnConn:            logRequest,
-		ConnectionFactory: octopussy.DialURL(amqpURL),
+		ConnectionFactory: octopussy.DialURLWithBackoff(amqpURL),
 	}
 	return server, server.SetupConnection()
 }

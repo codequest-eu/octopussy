@@ -1,20 +1,21 @@
 FROM nanoservice/go:latest
 
-# Create app directory.
-ENV APP_HOME=/octopussy
-RUN mkdir -p $APP_HOME
-
 # Download dependencies.
 RUN go get github.com/codegangsta/cli
-RUN go get github.com/codequest-eu/octopussy/lib
 RUN go get github.com/gorilla/websocket
+RUN go get github.com/streadway/amqp
 
-# Add the code.
-ADD . $APP_HOME
-
-# Build dependencies and the octopussy binary.
-WORKDIR $APP_HOME
+ENV CODE_HOME=$GOPATH/src/github.com/codequest-eu/octopussy
+RUN mkdir -p $CODE_HOME
+ADD . $CODE_HOME
+WORKDIR $CODE_HOME
 RUN go build
+
+# Create app directory and move the binary there.
+ENV APP_HOME=/octopussy
+RUN mkdir -p $APP_HOME
+RUN mv $CODE_HOME/octopussy $APP_HOME/
+WORKDIR $APP_HOME
 
 # Clean up.
 RUN apk del --purge go
