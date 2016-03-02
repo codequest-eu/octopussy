@@ -15,6 +15,7 @@ RUN go build
 ENV APP_HOME=/octopussy
 RUN mkdir -p $APP_HOME
 RUN mv $CODE_HOME/octopussy $APP_HOME/
+RUN mv $CODE_HOME/cert_setup.sh $APP_HOME/
 WORKDIR $APP_HOME
 
 # Clean up.
