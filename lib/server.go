@@ -3,6 +3,7 @@ package octopussy
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/streadway/amqp"
@@ -38,6 +39,19 @@ var DefaultUpgrader = &websocket.Upgrader{}
 func DialURL(url string) ConnectionFactory {
 	return func() (*amqp.Connection, error) {
 		return amqp.Dial(url)
+	}
+}
+
+func DialURLWithBackoff(url string) ConnectionFactory {
+	return func() (conn *amqp.Connection, err error) {
+		for i := 1; ; i++ {
+			if conn, err = amqp.Dial(url); err == nil || i == 5 {
+				return
+			}
+			log.Printf("AMQP connection failed, attempt %d", i)
+			time.Sleep(time.Duration(i*3) * time.Second)
+		}
+		return
 	}
 }
 
