@@ -3,10 +3,15 @@ package main
 import "github.com/codegangsta/cli"
 
 var (
-	amqpURL, amqpExchange, host, originRegexp string
-	port                                      int
-	development                               bool
-	hostFlag                                  = cli.StringFlag{
+	amqpURL            string
+	amqpExchange       string
+	amqpCARoot         string
+	customDNSResolvers string
+	host               string
+	originRegexp       string
+	port               int
+	development        bool
+	hostFlag           = cli.StringFlag{
 		Name:        "bind, b",
 		Value:       "",
 		Usage:       "host to bind the ws server",
@@ -39,6 +44,20 @@ var (
 		Usage:       "topic exchange name",
 		EnvVar:      "AMQP_EXCHANGE",
 		Destination: &amqpExchange,
+	}
+	amqpCARootFlag = cli.StringFlag{
+		Name:        "amqp-ca-root, c",
+		Value:       "",
+		Usage:       "AMQP CA root, if applicable",
+		EnvVar:      "AMQP_CA_CERT",
+		Destination: &amqpCARoot,
+	}
+	customDNSResolversFlag = cli.StringFlag{
+		Name:        "custom-dns-resolvers, d",
+		Value:       "",
+		Usage:       "custom DNS resolvers, if applicable",
+		EnvVar:      "CUSTOM_DNS_RESOLVERS",
+		Destination: &customDNSResolvers,
 	}
 	developmentFlag = cli.BoolFlag{
 		Name:        "development, d",
