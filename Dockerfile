@@ -4,6 +4,7 @@ FROM nanoservice/go:latest
 RUN go get github.com/codegangsta/cli
 RUN go get github.com/gorilla/websocket
 RUN go get github.com/streadway/amqp
+RUN go get github.com/codequest-eu/dnsdialer
 
 ENV CODE_HOME=$GOPATH/src/github.com/codequest-eu/octopussy
 RUN mkdir -p $CODE_HOME
