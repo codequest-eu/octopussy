@@ -57,7 +57,7 @@ var (
 		Value:       "",
 		Usage:       "custom DNS resolvers, if applicable",
 		EnvVar:      "CUSTOM_DNS_RESOLVERS",
-		Destination: &amqpCARoot,
+		Destination: &customDNSResolvers,
 	}
 	developmentFlag = cli.BoolFlag{
 		Name:        "development, d",
