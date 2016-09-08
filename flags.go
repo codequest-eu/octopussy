@@ -53,7 +53,7 @@ var (
 		Destination: &amqpCARoot,
 	}
 	customDNSResolversFlag = cli.StringFlag{
-		Name:        "custom-dns-resolvers, d",
+		Name:        "custom-dns-resolvers",
 		Value:       "",
 		Usage:       "custom DNS resolvers, if applicable",
 		EnvVar:      "CUSTOM_DNS_RESOLVERS",
