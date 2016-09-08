@@ -24,10 +24,14 @@ func logRequest(r http.Request) {
 
 func createServer() (*octopussy.Server, error) {
 	server := &octopussy.Server{
-		Exchange:          amqpExchange,
-		OnError:           logError,
-		OnConn:            logRequest,
-		ConnectionFactory: octopussy.DialURLWithBackoff(amqpURL),
+		Exchange: amqpExchange,
+		OnError:  logError,
+		OnConn:   logRequest,
+		ConnectionFactory: octopussy.DialURLWithBackoff(
+			amqpURL,
+			amqpCARoot,
+			customDNSResolvers,
+		),
 	}
 	return server, server.SetupConnection()
 }
@@ -87,7 +91,16 @@ func main() {
 	app.Name = "AMQP-WebSocket push service"
 	app.Usage = "provides real-time notifications from amqp topics"
 	app.Version = "0.0.1"
-	app.Flags = []cli.Flag{developmentFlag, hostFlag, portFlag, amqpURLFlag, amqpExchangeFlag, originRegexpFlag}
+	app.Flags = []cli.Flag{
+		developmentFlag,
+		hostFlag,
+		portFlag,
+		amqpURLFlag,
+		amqpExchangeFlag,
+		amqpURLFlag,
+		customDNSResolversFlag,
+		originRegexpFlag,
+	}
 	app.Action = runServer
 	app.Run(os.Args)
 }
