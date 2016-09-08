@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"log"
 	"net/http"
@@ -73,7 +74,22 @@ func serveHTTP() {
 	}
 	// Requires cert.pem and cert.key to be present. See cert_setup.sh
 	log.Println("Listening for WebSocket connections with TLS on " + parsedAddr)
-	log.Fatal(http.ListenAndServeTLS(parsedAddr, "cert.pem", "cert.key", nil))
+	certificate, err := tls.X509KeyPair(
+		[]byte(os.Getenv("WS_CERT")),
+		[]byte(os.Getenv("WS_KEY")),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	listener, err := tls.Listen(
+		"tcp",
+		parsedAddr,
+		&tls.Config{Certificates: []tls.Certificate{certificate}},
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Fatal(http.Serve(listener, nil))
 }
 
 func runServer(c *cli.Context) {
