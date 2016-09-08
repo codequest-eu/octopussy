@@ -66,12 +66,13 @@ func setupServer() (*octopussy.Server, error) {
 
 func serveHTTP() {
 	parsedAddr := fmt.Sprintf("%s:%d", host, port)
-	log.Println("Listening for WebSocket connections on " + parsedAddr)
 	if development {
+		log.Println("Listening for WebSocket connections without TLS on " + parsedAddr)
 		log.Fatal(http.ListenAndServe(parsedAddr, nil))
 		return
 	}
 	// Requires cert.pem and cert.key to be present. See cert_setup.sh
+	log.Println("Listening for WebSocket connections with TLS on " + parsedAddr)
 	log.Fatal(http.ListenAndServeTLS(parsedAddr, "cert.pem", "cert.key", nil))
 }
 
