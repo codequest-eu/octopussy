@@ -97,7 +97,7 @@ func main() {
 		portFlag,
 		amqpURLFlag,
 		amqpExchangeFlag,
-		amqpURLFlag,
+		amqpCARootFlag,
 		customDNSResolversFlag,
 		originRegexpFlag,
 	}
