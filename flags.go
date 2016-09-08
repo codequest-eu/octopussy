@@ -49,7 +49,7 @@ var (
 		Name:        "amqp-ca-root, c",
 		Value:       "",
 		Usage:       "AMQP CA root, if applicable",
-		EnvVar:      "AMQP_EXCHANGE",
+		EnvVar:      "AMQP_CA_CERT",
 		Destination: &amqpCARoot,
 	}
 	customDNSResolversFlag = cli.StringFlag{
